@@ -1,0 +1,17 @@
+# Personal data, runtime state, secrets and generated assets
+/data/
+/private/
+/secrets/
+*.sqlite
+*.sqlite3
+*.db
+*.db-wal
+*.db-shm
+*.jsonl
+*.log
+.env
+.env.*
+!.env.example
+__pycache__/
+*.py[cod]
+.venv/
