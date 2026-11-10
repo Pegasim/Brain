@@ -1,0 +1,9 @@
+[project]
+name = "brain-demo"
+version = "0.1.0"
+description = "Synthetic cross-source memory demo over MCP"
+requires-python = ">=3.11"
+dependencies = ["mcp>=1.20,<2"]
+
+[tool.uv]
+package = false

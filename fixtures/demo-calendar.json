@@ -1,0 +1,20 @@
+[
+  {
+    "id": "demo-review",
+    "start": "2026-10-30T10:00:00+03:00",
+    "title": "Demo review",
+    "description": "Calendar plan for the Friday demo review."
+  },
+  {
+    "id": "design-review",
+    "start": "2026-10-30T12:00:00+03:00",
+    "title": "Design review",
+    "description": "Calendar plan for an unrelated design review."
+  },
+  {
+    "id": "release-review",
+    "start": "2026-11-06T10:00:00+03:00",
+    "title": "Release review",
+    "description": "Calendar plan for the Friday release review."
+  }
+]
