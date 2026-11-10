@@ -1,6 +1,6 @@
 # Privacy and data boundaries
 
-This project handles the owner's data and other people's messages. A private GitHub repo is shared with authorized collaborators; it is not a personal data vault.
+This project handles the owner's data and other people's messages. Treat the public project repository as code and documentation. Each owner keeps personal data in a separate local store.
 
 - Keep real data, exports, conversation archives, SQLite files, media, credentials, derived indexes, summaries and logs outside the repository. Use synthetic fixtures. Review staged files and commit history before pushing.
 - Each person controls a separate local store and decides which sources to import. Do not put another person's private data into a shared test fixture or issue.

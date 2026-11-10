@@ -1,12 +1,12 @@
-# Pegasim architecture proposal
+# Brain architecture proposal
 
-Pegasim combines CFV's timeline of what happened with the second brain's curated memory of what matters. The timeline can find a scheduled review and the conversation that followed it. Curated memory can carry forward a decision from that conversation and point back to the evidence. Each person runs their own local store.
+Brain combines CFV's timeline of what happened with the second brain's curated memory of what matters. The timeline can find a scheduled review and the conversation that followed it. Curated memory can carry forward a decision from that conversation and point back to the evidence. Each person runs their own local store.
 
 ## What we take from each system
 
 - **From CFV, take the event model and query patterns.** Normalize records from different apps into a common SQLite timeline, with source IDs, timestamps, local dates and source pointers. Use time windows and text search to find relevant events. Adopt CFV's staged refresh and coverage checks when recurring imports make them useful. [CFV architecture](cfv-architecture.md)
 - **From the second brain, take conversation capture and explicit curation.** Use the included extractor as the starting point for synthetic AI sessions. Store durable decisions and preferences as Markdown entries with dated evidence references. Start with hand-written entries. If agents need to propose entries later, adapt the inbox and deterministic filing workflow so proposed and curated memory remain distinct. [Second-brain architecture](second-brain-architecture.md)
-- **Build the connection in Pegasim.** Give timeline records stable references and use those references in memory notes. Expose both kinds of result through one read-only MCP server so an existing agent can use them in a conversation. Pegasim owns the shared format and can adapt individual components as needed. See the [source inventory](source-inventory.md) for code provenance and upstream reuse terms.
+- **Build the connection in Brain.** Give timeline records stable references and use those references in memory notes. Expose both kinds of result through one read-only MCP server so an existing agent can use them in a conversation. Brain owns the shared format and can adapt individual components as needed. See the [source inventory](source-inventory.md) for code provenance and upstream reuse terms.
 
 ## Data flow
 
@@ -16,7 +16,7 @@ flowchart LR
     Sessions[Extracted AI sessions] --> Import
     Import --> Timeline[SQLite timeline and text index]
     Timeline -. stable evidence references .-> Notes[Curated Markdown notes]
-    Timeline --> Retrieve[Pegasim MCP server]
+    Timeline --> Retrieve[Brain MCP server]
     Notes --> Retrieve
     Retrieve --> Agent[Existing agent]
     Agent --> Answer[Answer with source citations]
@@ -24,7 +24,7 @@ flowchart LR
 
 - **Evidence.** Keep source snapshots outside Git. Store normalized events with a type, source-scoped record ID, time and precision, local date, and a pointer to the source. Scope IDs by source instance so identical IDs from different calendars or accounts stay distinct. Keep the normalized timeline and its search index rebuildable. Preserve the distinction between a scheduled event and a record that says it happened.
 - **Curated memory.** Each entry states a durable decision or preference, who stated it, when it was recorded, and which event references support it. Markdown is the source of truth for those entries. Retrieval surfaces their evidence alongside the note and identifies a missing source if a reference no longer resolves. A later correction can supersede a note while its earlier evidence remains traceable, subject to the owner's deletion policy.
-- **Retrieval.** Follow CFV's connection pattern. An existing agent host launches Pegasim's local MCP server and communicates with it over standard input and output. Start with one read-only tool, `lookup`, that takes a topic and optional date range. It searches the timeline and notes, follows their evidence links, and returns bounded results with source type, timestamp, stable reference and a short excerpt. The host agent uses those results to answer and cite sources. The lookup itself is deterministic, so we can test it separately from the agent's answer.
+- **Retrieval.** Follow CFV's connection pattern. An existing agent host launches Brain's local MCP server and communicates with it over standard input and output. Start with one read-only tool, `lookup`, that takes a topic and optional date range. It searches the timeline and notes, follows their evidence links, and returns bounded results with source type, timestamp, stable reference and a short excerpt. The host agent uses those results to answer and cite sources. The lookup itself is deterministic, so we can test it separately from the agent's answer.
 - **Imports.** Use a small setup command to load the fixtures. A CLI is useful for loading data or debugging the lookup. The first demo runs from the agent's chat through MCP.
 - **Data boundaries.** Each person selects which sources to import. Keep private snapshots, excerpts and stores out of the shared repo. The first build exposes only synthetic fixtures. A local MCP server can return excerpts to a host that uses a remote model. Before real imports, agree how access, model processing and deletion work across the input store, derived data and notes. See [Privacy](privacy.md).
 

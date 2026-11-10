@@ -17,4 +17,4 @@ Start with Safa and Tuna as research participants, using separate private stores
 Product name, audience, commercial versus open-source direction, licensing, deployment, which sources to prioritize, what the user should trust the system to do, and which capability becomes the headline. No claim of complete life coverage, human-level fidelity, validated accuracy, or generalizable prediction.
 
 ## Initial decisions
-Pegasim hosts a new, initially private collaboration repo. Start with documentation and review reusable components from both existing projects. Decide joint project governance and code permissions with contributors before broad distribution. Follow the evidence and revise this thesis when the first experiment is complete.
+Brain is the working product name. Pegasim is the GitHub organization hosting the project repo. Start with documentation and review reusable components from both existing projects. Decide joint project governance and code permissions with contributors before broad distribution. Follow the evidence and revise this thesis when the first experiment is complete.

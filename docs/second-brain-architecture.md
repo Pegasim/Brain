@@ -1,6 +1,6 @@
 # Safa's second-brain architecture
 
-This describes the private second brain's configured workflow as of 2026-11-10. It is a reference for Pegasim's design. See [Architecture](architecture.md) for the proposed shared system and [Source inventory](source-inventory.md) for code provenance.
+This describes the private second brain's configured workflow as of 2026-11-10. It is a reference for Brain's design. See [Architecture](architecture.md) for the proposed shared system and [Source inventory](source-inventory.md) for code provenance.
 
 ## The three layers
 
@@ -35,11 +35,11 @@ flowchart TD
 - **Index and read.** The VPS imports notes and conversations into gbrain and computes embeddings separately. Newly imported material can be found by keyword before its semantic index catches up. Agents use MCP recall for depth and the generated core files for their always-loaded context. The configured recall route is read-only. Durable writes go through the inbox.
 - **Handle files separately.** Binary originals live in a private asset store outside the notes repo. An explicit import can create a searchable Markdown card containing a hash, pointer and optional description. Agents can locate the original when they need to inspect it. Model-generated descriptions are separate from user-verified facts.
 
-## What Pegasim can reuse
+## What Brain can reuse
 
 - **Source adapters.** The conversation extractor is the most concrete starting point. The included snapshot can be evaluated on synthetic traces as one input beside a second source. Keep source, timestamp and stable record IDs through import so retrieved answers can cite evidence.
 - **Separate evidence from interpretation.** Preserve source records independently of model summaries and curated facts. The inbox and dated log show how multiple agents can propose changes with provenance while one deterministic process handles filing. Consider that pattern if the first experiment needs memory writes.
-- **Keep retrieval replaceable.** Separate the canonical records from the search index and keep the read interface small. gbrain implements retrieval in Safa's installation. The first Pegasim experiment can choose the simplest retrieval that lets both collaborators check an answer against its sources.
-- **Treat deployment as an implementation choice.** The current laptop/VPS schedule, harness setup and model prompts serve one person's installation. Pegasim can test the useful parts with synthetic data first and make its own decisions about storage, scheduling and remote processing.
+- **Keep retrieval replaceable.** Separate the canonical records from the search index and keep the read interface small. gbrain implements retrieval in Safa's installation. The first Brain experiment can choose the simplest retrieval that lets both collaborators check an answer against its sources.
+- **Treat deployment as an implementation choice.** The current laptop/VPS schedule, harness setup and model prompts serve one person's installation. Brain can test the useful parts with synthetic data first and make its own decisions about storage, scheduling and remote processing.
 
 Source references in the private second brain are `README.md`, `tools/extract/README.md`, `tools/distill/brain_distill.py`, `tools/brain/README.md`, `tools/compile/compile_core.py`, and the scheduled jobs under `ops/laptop/` and `ops/gbrain/`. The shared design depends on the concepts described here and can adopt specific code when an experiment calls for it.
