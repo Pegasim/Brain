@@ -6,6 +6,7 @@ An exploration of a personal system built from a person's digital history. It co
 
 - [Project thesis](docs/thesis.md) — ambition, candidate positions and decisions
 - [Architecture](docs/architecture.md) — proposed data flow and source projects
+- [Second-brain architecture](docs/second-brain-architecture.md) — how Safa's existing system captures, curates and serves memory
 - [Evaluation](docs/evaluation.md) — experiments and baselines
 - [Privacy](docs/privacy.md) — practical data boundaries
 - [Landscape](docs/landscape.md) — comparison questions and research plan
