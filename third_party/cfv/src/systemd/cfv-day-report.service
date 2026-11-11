@@ -1,0 +1,7 @@
+[Unit]
+Description=CFV: eksik gün/hafta/ay raporlarını cfv-editor bp ajanına gönder
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/shared/projects/cfv
+ExecStart=/home/shared/projects/cfv/bin/compact send

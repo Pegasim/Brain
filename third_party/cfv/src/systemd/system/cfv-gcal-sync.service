@@ -1,0 +1,21 @@
+[Unit]
+Description=CFV: Google Takvim salt-okur senkronu (data/raw/google-calendar)
+Documentation=file:///srv/central-finite-vault/src/cfv/gcal_sync.py
+Wants=network-online.target
+After=network-online.target
+RequiresMountsFor=/mnt/depo1
+
+[Service]
+Type=oneshot
+UMask=0077
+Environment=HOME=/root
+Environment=CFV_GOG=/srv/central-finite-vault/src/gsync/gog-ro
+# eski events.json'ın tarihli kopyası (yalnız ekleme)
+ExecStartPre=/srv/central-finite-vault/src/gsync/snapshot.sh /srv/central-finite-vault/data/raw/google-calendar/events.json events
+# hata (ağ yok, token düştü) her zaman 0 ile biter; ayrıntı data/logs/gcal-sync.log, kontrol: cfv-gsync-check
+# gog anahtarlık şifresi: dosya 'export X=...' biçiminde (EnvironmentFile= okuyamaz, satırı journal'a basar),
+# bu yüzden kabukta yüklenir; içerik hiçbir yere yazılmaz. Dosya repo dışında, root 600.
+ExecStart=/bin/sh -c '. /root/.config/gogcli/keyring-pass.env && exec /root/.local/bin/uv run --quiet --directory /srv/central-finite-vault cfv sync gcal --full --no-ingest'
+Nice=10
+IOSchedulingClass=idle
+TimeoutStartSec=15min

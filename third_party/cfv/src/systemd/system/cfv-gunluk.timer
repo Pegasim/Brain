@@ -1,0 +1,9 @@
+[Unit]
+Description=CFV: gece konsolidasyonu 05:30'da tetiklenir; servis foto (günlük/Cmt tam tur) + gmail çekimlerinin bitişini bekler (en çok 2 sa)
+
+[Timer]
+OnCalendar=*-*-* 05:30
+Persistent=true
+
+[Install]
+WantedBy=timers.target

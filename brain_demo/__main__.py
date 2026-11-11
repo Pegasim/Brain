@@ -1,41 +1,59 @@
 import argparse
+import os
 from pathlib import Path
 
-from .store import DEFAULT_DB, LookupResult, load_demo, lookup
+from .maintenance import run
+from .store import DEFAULT_DB, DEFAULT_VAULT, LookupResult, load_demo, lookup, refresh
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description="Brain's synthetic calendar and conversation demo")
-    parser.add_argument("command", choices=["load", "serve"])
-    parser.add_argument("--db", type=Path, default=DEFAULT_DB, help="Path for the synthetic SQLite store")
+def main():
+    parser = argparse.ArgumentParser(description="Brain: CFV timeline and second-brain memory")
+    commands = parser.add_subparsers(dest="command", required=True)
+    for command in ("load", "serve", "refresh"):
+        child = commands.add_parser(command)
+        child.add_argument("--db", type=Path, default=DEFAULT_DB)
+        if command == "refresh":
+            child.add_argument("--vault", type=Path, default=DEFAULT_VAULT)
+            child.add_argument("--calendar", type=Path, action="append", default=[])
+            child.add_argument("--sessions", type=Path, help="Directory of Codex JSONL session traces")
+            child.add_argument("--archive", type=Path, help="Redacted conversation Markdown from the extractor")
+            child.add_argument("--source-name", default="codex", help="Stable identity for this session source")
+    memory = commands.add_parser("memory")
+    memory.add_argument("--vault", type=Path, default=DEFAULT_VAULT)
+    memory.add_argument("arguments", nargs=argparse.REMAINDER, help="add, inbox, or consolidate and their options")
     args = parser.parse_args()
-    if args.command == "load":
-        try:
+    try:
+        if args.command == "memory":
+            raise SystemExit(run(args.vault, args.arguments))
+        if args.command == "load":
             load_demo(args.db)
-        except ValueError as exc:
-            parser.error(str(exc))
-        print(f"Loaded synthetic fixtures into {args.db}")
-        return
+            print(f"Loaded synthetic fixtures through CFV and maintenance tools into {args.db}")
+            return
+        if args.command == "refresh":
+            refresh(args.db, args.vault, args.calendar, args.sessions, args.source_name, args.archive)
+            print(f"Refreshed CFV timeline at {args.db}")
+            return
+    except (ValueError, OSError) as exc:
+        parser.error(str(exc))
     if not args.db.is_file():
-        parser.error("Demo database missing. Run the load command first with the same --db path.")
+        parser.error("Database missing. Run load for the synthetic demo or refresh to import sources.")
 
-    from mcp.server.fastmcp import FastMCP
+    os.environ["CFV_DB"] = str(args.db.resolve())
+    os.environ["CFV_DATA"] = str(args.db.resolve().parent.parent)
+    from cfv.mcp_server import mcp
     from mcp.types import ToolAnnotations
 
-    server = FastMCP("brain-demo")
-
-    @server.tool(name="lookup", annotations=ToolAnnotations(readOnlyHint=True))
+    @mcp.tool(name="lookup", annotations=ToolAnnotations(read_only_hint=True, destructive_hint=False))
     def lookup_tool(topic: str, start: str | None = None, end: str | None = None) -> LookupResult:
-        """Search Brain's evidence using a short topic like 'demo review'.
+        """Search Brain's CFV timeline and consolidated memory with evidence links.
 
-        Optional start and end are inclusive local dates (YYYY-MM-DD).
-        Cite each record's reference. A calendar plan records what was scheduled.
-        A user statement records what was reported. Rescheduling alone leaves
-        actual attendance unknown.
+        Use a short topic and optional inclusive local dates (YYYY-MM-DD).
+        Cite returned references. Calendar plans and reported rescheduling leave
+        attendance unknown. Missing references mean support could not be retrieved.
         """
         return lookup(args.db, topic, start, end)
 
-    server.run(transport="stdio")
+    mcp.run()
 
 
 if __name__ == "__main__":

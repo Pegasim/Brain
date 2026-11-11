@@ -1,0 +1,41 @@
+# --- KİŞİSEL VERİ: asla git'e girmez ---
+/data
+/data/
+data/
+*.sqlite
+*.sqlite-*
+*.sqlitedb
+*.db
+*.db-*
+*.heic
+*.HEIC
+*.jpg
+*.jpeg
+*.JPG
+*.png
+*.mov
+*.MOV
+*.mp4
+*.xmp
+*.zip
+*.csv
+!tests/fixtures/**/*.csv
+*.json.gz
+
+# --- Python / uv ---
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+build/
+dist/
+
+# --- Diğer ---
+.env
+.env.*
+*.log
+.DS_Store
+bin/

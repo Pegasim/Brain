@@ -1,9 +1,19 @@
 [project]
-name = "brain-demo"
-version = "0.1.0"
-description = "Synthetic cross-source memory demo over MCP"
-requires-python = ">=3.11"
-dependencies = ["mcp>=1.20,<2"]
+name = "brain"
+version = "0.2.0"
+description = "CFV timeline and curated memory for agents"
+requires-python = ">=3.12"
+dependencies = ["cfv", "mcp>=2.3,<3"]
 
 [tool.uv]
 package = false
+
+[tool.uv.sources]
+cfv = { path = "third_party/cfv", editable = true }
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests", "third_party/cfv/tests"]

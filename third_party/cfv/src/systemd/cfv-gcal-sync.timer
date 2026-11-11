@@ -1,0 +1,11 @@
+[Unit]
+Description=CFV: Google Takvim senkronu her 30 dakikada
+
+[Timer]
+OnBootSec=5min
+OnCalendar=*:00/30
+RandomizedDelaySec=2min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,9 @@
+[Unit]
+Description=CFV: haftalık foto ikinci kopya (depo4)
+
+[Timer]
+OnCalendar=Sun *-*-* 07:30
+Persistent=true
+
+[Install]
+WantedBy=timers.target

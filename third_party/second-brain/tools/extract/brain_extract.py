@@ -407,56 +407,57 @@ def parse_codex(path):
     s = None
     cur = None
     skip = False
-    for line in open(path, encoding="utf-8", errors="replace"):
-        try:
-            e = json.loads(line)
-        except Exception:
-            continue
-        pl = e.get("payload") if isinstance(e.get("payload"), dict) else {}
-        et = e.get("type")
-        if et == "session_meta":
-            sid = pl.get("id") or pl.get("session_id") or path.stem
-            s = Session("codex", sid)
-            s.source = str(path)
-            s.cwd = pl.get("cwd")
-            s.model = pl.get("model_provider")
-            s.touch(parse_ts(pl.get("timestamp")))
-            if pl.get("parent_thread_id") or pl.get("forked_from_id"):
-                skip = True      # sub-agent / forked thread: the parent session carries the summary
-            continue
-        if s is None or skip:
-            continue
-        if et == "event_msg" and pl.get("type") == "item_completed":
-            it = pl.get("item") or {}
-            ty = it.get("type")
-            ts = parse_ts(e.get("timestamp"))
-            s.touch(ts)
-            if ty == "UserMessage":
-                text = clean_user(_codex_text(it.get("content")))
-                cur = None
-                if text:
-                    s.turns.append(Turn("user", ts, text))
-            elif ty == "AgentMessage":
-                text = _codex_text(it.get("content")).strip()
-                if text:
+    with open(path, encoding="utf-8", errors="replace") as lines:
+        for line in lines:
+            try:
+                e = json.loads(line)
+            except Exception:
+                continue
+            pl = e.get("payload") if isinstance(e.get("payload"), dict) else {}
+            et = e.get("type")
+            if et == "session_meta":
+                sid = pl.get("id") or pl.get("session_id") or path.stem
+                s = Session("codex", sid)
+                s.source = str(path)
+                s.cwd = pl.get("cwd")
+                s.model = pl.get("model_provider")
+                s.touch(parse_ts(pl.get("timestamp")))
+                if pl.get("parent_thread_id") or pl.get("forked_from_id"):
+                    skip = True      # sub-agent / forked thread: the parent session carries the summary
+                continue
+            if s is None or skip:
+                continue
+            if et == "event_msg" and pl.get("type") == "item_completed":
+                it = pl.get("item") or {}
+                ty = it.get("type")
+                ts = parse_ts(e.get("timestamp"))
+                s.touch(ts)
+                if ty == "UserMessage":
+                    text = clean_user(_codex_text(it.get("content")))
+                    cur = None
+                    if text:
+                        s.turns.append(Turn("user", ts, text))
+                elif ty == "AgentMessage":
+                    text = _codex_text(it.get("content")).strip()
+                    if text:
+                        if cur is None:
+                            cur = Turn("assistant", ts)
+                            s.turns.append(cur)
+                        cur.text += ("\n\n" if cur.text else "") + text
+                elif ty in ("CommandExecution", "FileChange", "McpToolCall", "WebSearch"):
                     if cur is None:
                         cur = Turn("assistant", ts)
                         s.turns.append(cur)
-                    cur.text += ("\n\n" if cur.text else "") + text
-            elif ty in ("CommandExecution", "FileChange", "McpToolCall", "WebSearch"):
-                if cur is None:
-                    cur = Turn("assistant", ts)
-                    s.turns.append(cur)
-                if ty == "CommandExecution":
-                    cmd = it.get("command")
-                    cmd = " ".join(cmd) if isinstance(cmd, list) else cmd
-                    cur.tools.append(("Bash", one_line(cmd)))
-                elif ty == "FileChange":
-                    cur.tools.append(("Edit", one_line(", ".join(sorted((it.get("changes") or {}).keys())[:4]))))
-                elif ty == "McpToolCall":
-                    cur.tools.append((f"mcp:{it.get('server')}", one_line(it.get("tool"))))
-                else:
-                    cur.tools.append(("WebSearch", one_line(it.get("query"))))
+                    if ty == "CommandExecution":
+                        cmd = it.get("command")
+                        cmd = " ".join(cmd) if isinstance(cmd, list) else cmd
+                        cur.tools.append(("Bash", one_line(cmd)))
+                    elif ty == "FileChange":
+                        cur.tools.append(("Edit", one_line(", ".join(sorted((it.get("changes") or {}).keys())[:4]))))
+                    elif ty == "McpToolCall":
+                        cur.tools.append((f"mcp:{it.get('server')}", one_line(it.get("tool"))))
+                    else:
+                        cur.tools.append(("WebSearch", one_line(it.get("query"))))
     return None if skip else s
 
 

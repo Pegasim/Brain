@@ -1,0 +1,9 @@
+[Unit]
+Description=CFV: senkron sağlık kontrolü her gün 09:00
+
+[Timer]
+OnCalendar=*-*-* 09:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

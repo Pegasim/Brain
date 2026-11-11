@@ -1,0 +1,17 @@
+[Unit]
+Description=CFV: rüya günlüğü turu (WhatsApp "Rüya" grubu + kestirme → ham kayıt → Whisper → ingest → Haiku işi)
+Documentation=file:///srv/central-finite-vault/src/cfv/ruya.py
+RequiresMountsFor=/mnt/depo1
+
+[Service]
+Type=oneshot
+UMask=0077
+Environment=HOME=/root
+Environment=PATH=/root/.local/bin:/usr/local/bin:/usr/bin:/bin
+# bp msg servis imzası "[service:cfv-ruya]"; hedef server-cfv ve altıyla sınırlı (cfv-ruya-yorum dahil)
+Environment=BP_OWNER=server-cfv
+ExecStart=/root/.local/bin/uv run --quiet --directory /srv/central-finite-vault cfv ruya tur
+Nice=19
+IOSchedulingClass=idle
+CPUWeight=20
+TimeoutStartSec=30min

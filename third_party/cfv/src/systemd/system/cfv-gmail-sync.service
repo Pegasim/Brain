@@ -1,0 +1,20 @@
+[Unit]
+Description=CFV: Gmail salt-okur artımlı senkron (data/raw/gmail, hesaplar data/config/gmail-accounts)
+Documentation=file:///srv/central-finite-vault/src/cfv/gmail_sync.py
+Wants=network-online.target
+After=network-online.target
+RequiresMountsFor=/mnt/depo1
+
+[Service]
+Type=oneshot
+UMask=0077
+Environment=HOME=/root
+Environment=CFV_GOG=/srv/central-finite-vault/src/gsync/gog-ro
+# eski messages.jsonl'ların tarihli kopyası (yalnız ekleme); başarısızsa senkron çalışmaz
+ExecStartPre=/bin/sh -c 'for f in /srv/central-finite-vault/data/raw/gmail/*/messages.jsonl; do [ -f "$$f" ] || continue; /srv/central-finite-vault/src/gsync/snapshot.sh "$$f" messages || exit 1; done'
+# gog anahtarlık şifresi: dosya 'export X=...' biçiminde (EnvironmentFile= okuyamaz, satırı journal'a basar),
+# bu yüzden kabukta yüklenir; içerik hiçbir yere yazılmaz. Dosya repo dışında, root 600.
+ExecStart=/bin/sh -c '. /root/.config/gogcli/keyring-pass.env && exec /root/.local/bin/uv run --quiet --directory /srv/central-finite-vault cfv sync gmail --no-ingest'
+Nice=10
+IOSchedulingClass=idle
+TimeoutStartSec=2h

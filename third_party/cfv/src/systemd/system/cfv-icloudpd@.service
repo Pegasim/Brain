@@ -1,0 +1,22 @@
+[Unit]
+Description=CFV: iCloud Fotoğraflar çekimi (%i) → /mnt/depo1/foto/icloud-sync
+Documentation=file:///srv/central-finite-vault/src/photos/icloud/cfv-icloudpd.sh
+Wants=network-online.target
+After=network-online.target
+RequiresMountsFor=/mnt/depo1
+
+[Service]
+Type=oneshot
+User=tunapro
+# ICLOUD_USER burada (repo dışında, root 600)
+EnvironmentFile=/etc/cfv-icloudpd.env
+# bp msg hedefi server-cfv ve altı (cfv-photos) ile sınırlı; imza [service:<birim>]
+Environment=BP_OWNER=server-cfv
+ExecStart=/srv/central-finite-vault/src/photos/icloud/cfv-icloudpd.sh %i
+# + = root: sayım/durum satırı ve bp alarmı (arşive yazmaz)
+ExecStopPost=+/srv/central-finite-vault/src/photos/icloud/kontrol.sh
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+# tam-video turu saatler sürebilir; takılma içeride ölçülür (30 dk hareketsiz → tur yeniden)
+TimeoutStartSec=infinity

@@ -1,0 +1,23 @@
+[Unit]
+Description=CFV: gece konsolidasyonu (ingest → timeline → foto türevleri → gün kapanışı, büyüme, tazelik)
+Documentation=file:///srv/cfv/prod/src/akis/gunluk.py
+RequiresMountsFor=/mnt/depo1
+
+[Service]
+# Kod: yalnız commit'lenmiş kodu tutan worktree (/srv/cfv/prod, detached main; server-cfv her push'ta günceller).
+# Ana çalışma ağacındaki yarım kod gece turuna girmez. Veri yolu aynı.
+WorkingDirectory=/srv/cfv/prod
+Environment=CFV_DATA=/mnt/depo1/cfv/data
+Type=oneshot
+UMask=0077
+Environment=HOME=/root
+Environment=PATH=/root/.local/bin:/usr/local/bin:/usr/bin:/bin
+# bp msg servis imzası "[service:cfv-gunluk]"; hedef server-cfv ve altıyla sınırlı
+Environment=BP_OWNER=server-cfv
+Environment=CFV_WORKERS=4
+# çekimler (icloudpd/gmail/gcal/ikinci kopya) bitene kadar içeride en çok 2 sa bekler
+ExecStart=/root/.local/bin/uv run --quiet --directory /srv/cfv/prod python -m akis.gunluk
+Nice=19
+IOSchedulingClass=idle
+CPUWeight=20
+TimeoutStartSec=8h

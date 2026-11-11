@@ -1,0 +1,9 @@
+[Unit]
+Description=CFV: rüya günlüğü turu 05:00–23:45 arası 15 dakikada bir
+
+[Timer]
+OnCalendar=*-*-* 05..23:00/15
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,12 @@
+[Unit]
+Description=CFV: Takvim + Gmail senkron sağlık kontrolü (sorun varsa bp msg server-cfv)
+Documentation=file:///srv/central-finite-vault/src/gsync/check.py
+RequiresMountsFor=/mnt/depo1
+
+[Service]
+Type=oneshot
+UMask=0077
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+# bp msg servis imzası "[service:cfv-gsync-check]"; hedef server-cfv ve altıyla sınırlı
+Environment=BP_OWNER=server-cfv
+ExecStart=/usr/bin/python3 -I /srv/central-finite-vault/src/gsync/check.py

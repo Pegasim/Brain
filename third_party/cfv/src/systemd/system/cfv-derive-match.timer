@@ -1,0 +1,9 @@
+[Unit]
+Description=CFV: haftalık derive match Pazar 00:30 (borg penceresi 03:15'ten önce biter)
+
+[Timer]
+OnCalendar=Sun *-*-* 00:30
+Persistent=true
+
+[Install]
+WantedBy=timers.target

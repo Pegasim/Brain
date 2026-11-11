@@ -1,0 +1,24 @@
+[project]
+name = "cfv-predict"
+version = "0.0.1"
+description = "CFV: sonraki günü tahmin — ortak altyapı (common) + yaklaşımlar"
+requires-python = ">=3.12"
+dependencies = []
+
+[dependency-groups]
+dev = ["pytest>=8"]
+life2vec = [
+    "numpy>=2.5.4",
+    "scipy>=1.18.1",
+    "torch>=2.15.0",
+]
+persona = [
+    "sentence-transformers>=6.2.0",
+]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

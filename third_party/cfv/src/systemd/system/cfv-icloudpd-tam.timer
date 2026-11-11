@@ -1,0 +1,11 @@
+[Unit]
+Description=CFV: iCloud Fotoğraflar haftalık tam tur (Cumartesi 05:20; sonradan eklenmiş eski tarihli öğeler)
+
+[Timer]
+OnCalendar=Sat *-*-* 05:20
+RandomizedDelaySec=5min
+Persistent=true
+Unit=cfv-icloudpd@tam.service
+
+[Install]
+WantedBy=timers.target

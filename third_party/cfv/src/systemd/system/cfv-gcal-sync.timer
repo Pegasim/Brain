@@ -1,0 +1,10 @@
+[Unit]
+Description=CFV: Google Takvim senkronu günde 4 kez (borg penceresi 03:15-05:15 dışında)
+
+[Timer]
+OnCalendar=*-*-* 00,06,12,18:15
+RandomizedDelaySec=5min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

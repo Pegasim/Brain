@@ -1,0 +1,11 @@
+[Unit]
+Description=CFV: Google Takvim salt-okur senkronu (data/raw/google-calendar)
+Documentation=file:///home/shared/projects/cfv/docs/data-manifest.md
+
+[Service]
+Type=oneshot
+# Hata (ağ yok, token düştü) her zaman 0 ile biter; ayrıntı: data/logs/gcal-sync.log
+ExecStart=/home/tuna/.local/bin/uv run --quiet --directory /home/shared/projects/cfv cfv sync gcal
+Nice=10
+IOSchedulingClass=idle
+TimeoutStartSec=15min

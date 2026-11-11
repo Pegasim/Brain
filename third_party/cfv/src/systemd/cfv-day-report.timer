@@ -1,0 +1,10 @@
+[Unit]
+Description=CFV: her sabah 05:00 rapor işlerini cfv-editor'e gönder
+
+[Timer]
+OnCalendar=*-*-* 05:00
+RandomizedDelaySec=10min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

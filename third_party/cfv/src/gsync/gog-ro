@@ -1,0 +1,61 @@
+#!/usr/bin/env python3
+"""gog için izin listesi (salt-okur). Komut çevirmez; yalnız izin verir ya da reddeder.
+
+Geçen komutlar (ilk konumsal sözcüklere göre):
+  calendar calendars | calendar events
+  gmail labels list  | gmail messages search | gmail get
+Her çağrıya --no-input eklenir; --enable-commands ilk sözcüğe eşitlenir (gog da ikinci kat
+olarak kısıtlar). Başka her şey (send, create, update, delete, modify, auth, -y …) exit 2.
+Gerçek ikili: GOG_BIN (varsayılan /usr/local/bin/gog).
+"""
+import os
+import sys
+
+ALLOWED = [("calendar", "calendars"), ("calendar", "events"),
+           ("gmail", "labels", "list"), ("gmail", "messages", "search"), ("gmail", "get")]
+VALUE_FLAGS = {"-a", "--account", "--client", "--color", "--select", "--fields", "--from", "--to",
+               "--max", "--page", "--query", "--format", "--days", "--week-start"}
+DENY_FLAGS = {"-y", "--force"}
+
+
+def check(args: list[str]) -> tuple[str | None, str | None]:
+    """(red sebebi ya da None, ilk komut sözcüğü)."""
+    pos, enable, skip = [], None, False
+    for a in args:
+        if skip:
+            skip = False
+            continue
+        if a.startswith("-"):
+            name = a.split("=", 1)[0]
+            if name in DENY_FLAGS:
+                return f"yasak bayrak: {a}", None
+            if name == "--enable-commands":
+                if "=" not in a:
+                    return "--enable-commands=<x> biçiminde olmalı", None
+                enable = a.split("=", 1)[1]
+            elif name in VALUE_FLAGS and "=" not in a:
+                skip = True
+            continue
+        pos.append(a)
+    if not any(tuple(pos[:len(p)]) == p for p in ALLOWED):
+        return f"izin listesinde değil: {' '.join(pos[:3]) or '(boş)'}", None
+    if enable is not None and enable != pos[0]:
+        return f"--enable-commands={enable} komutla uyuşmuyor ({pos[0]})", None
+    return None, pos[0]
+
+
+def main() -> None:
+    args = sys.argv[1:]
+    why, first = check(args)
+    if why:
+        print(f"gog-ro: reddedildi: {why}", file=sys.stderr)
+        sys.exit(2)
+    extra = ["--no-input"] if "--no-input" not in args else []
+    if not any(a.startswith("--enable-commands=") for a in args):
+        extra.append(f"--enable-commands={first}")
+    gog = os.environ.get("GOG_BIN", "/usr/local/bin/gog")
+    os.execv(gog, [gog, *extra, *args])
+
+
+if __name__ == "__main__":
+    main()

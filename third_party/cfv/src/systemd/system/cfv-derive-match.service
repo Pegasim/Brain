@@ -1,0 +1,21 @@
+[Unit]
+Description=CFV: haftalık foto türev eşlemesi (derive.py match, tam tur ~1,5 sa)
+Documentation=file:///srv/cfv/prod/src/photos/derive.py
+RequiresMountsFor=/mnt/depo1
+
+[Service]
+# Kod: yalnız commit'lenmiş kodu tutan worktree (/srv/cfv/prod, detached main; server-cfv her push'ta günceller).
+# Ana çalışma ağacındaki yarım kod gece turuna girmez. Veri yolu aynı.
+WorkingDirectory=/srv/cfv/prod
+Environment=CFV_DATA=/mnt/depo1/cfv/data
+Type=oneshot
+UMask=0077
+Environment=HOME=/root
+Environment=PATH=/root/.local/bin:/usr/local/bin:/usr/bin:/bin
+Environment=BP_OWNER=server-cfv
+Environment=CFV_WORKERS=4
+ExecStart=/root/.local/bin/uv run --quiet --directory /srv/cfv/prod python -m akis.gunluk match
+Nice=19
+IOSchedulingClass=idle
+CPUWeight=20
+TimeoutStartSec=8h

@@ -1,0 +1,5 @@
+#!/bin/sh
+# cfv-site başlatıcı: repo .venv'i + src/site (pyproject'e dokunmadan).  cfv-site serve | set-password
+here=$(cd "$(dirname "$0")" && pwd)
+export PYTHONPATH="$here${PYTHONPATH:+:$PYTHONPATH}"
+exec "$here/../../.venv/bin/python" -m cfv_site "$@"
