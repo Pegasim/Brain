@@ -7,7 +7,7 @@ from .store import DEFAULT_DB, DEFAULT_VAULT, LookupResult, load_demo, lookup, r
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Brain: CFV timeline and second-brain memory")
+    parser = argparse.ArgumentParser(description="Defter: CFV timeline and second-brain memory")
     commands = parser.add_subparsers(dest="command", required=True)
     for command in ("load", "serve", "refresh"):
         child = commands.add_parser(command)
@@ -45,7 +45,7 @@ def main():
 
     @mcp.tool(name="lookup", annotations=ToolAnnotations(read_only_hint=True, destructive_hint=False))
     def lookup_tool(topic: str, start: str | None = None, end: str | None = None) -> LookupResult:
-        """Search Brain's CFV timeline and consolidated memory with evidence links.
+        """Search Defter's CFV timeline and consolidated memory with evidence links.
 
         Use a short topic and optional inclusive local dates (YYYY-MM-DD).
         Cite returned references. Calendar plans and reported rescheduling leave

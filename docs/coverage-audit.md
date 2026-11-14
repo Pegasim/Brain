@@ -1,5 +1,7 @@
 # Pegasim/Brain coverage audit (2026-11-13, read-only)
 
+_Historical record: written when the project was named Brain (repo `Pegasim/Brain`, package `brain_demo`). Renamed to Defter (`Pegasim/defter`, package `defter`) on 2026-11-14; names below are kept as audited._
+
 Repos compared
 - Brain: `~/Documents/brain`, origin `Pegasim/Brain`, HEAD 022ed3f = origin/main. GitHub visibility: PUBLIC, no license.
 - Tuna: `tunapro1234/central-finite-vault` ("CFV"), PUBLIC, no license. Not on disk; cloned to this session's scratchpad. HEAD c7573e1 (2026-11-12).

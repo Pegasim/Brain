@@ -24,7 +24,7 @@ from cfv import db, search as S
 from cfv.tree import week_dir  # noqa: F401  (yol mantığı tek yerde)
 from cfv.timeutil import TR_MONTHS
 
-mcp = MCPServer("Brain", instructions=(
+mcp = MCPServer("Defter", instructions=(
     "Kişisel zaman çizelgesi (fotolar+kişiler, iCloud Notlar ve haftalık ödev listeleri, "
     "WhatsApp, takvim, Zepp saat verisi). Tarihler yerel gün 'YYYY-MM-DD'. Türkçe kelimelerde "
     "kök kullan (ödevlerimi → ödev); arama önek eşleşmelidir. 'Ne zaman' sorularında önce `when`, "

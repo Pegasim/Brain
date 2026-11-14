@@ -30,7 +30,7 @@ flowchart TD
 - **Views for browsing a period or a person.** CFV generates weekly timeline pages and includes a web interface with a timeline and relationship graph. Its report tree summarizes a period for drill-down. Safa's system instead organizes stable context and curated knowledge around topics, a dated log and retrieval.
 - **A forecasting benchmark tied to events.** CFV has a daily target builder, baselines and scoring code. The second brain has no equivalent benchmark for next-day behavior in its documented pipeline. The CFV benchmark measures particular behaviors and leaves separate questions about voice, judgment and decision-making to a different evaluation.
 
-## What Brain could reuse
+## What Defter could reuse
 
 1. **Start with the event model and query shape.** Adapt a small subset of the schema: source, durable source record ID, event type, time and precision, local date, participant references and a source pointer. Use time-window queries and evidence links before adding richer entity matching. For forecasting, preserve when each input became available as well as when the event occurred.
 2. **Try two importers on synthetic data.** Calendar plus WhatsApp is a useful first slice. A test could ask “Which messages mention the meetup around the calendar event?” and require both records as evidence. Keep a separate fixture for a calendar plan with no confirming message. Treat CFV's iPhone importer as an option for compatible backup snapshots. If the intended input is a text export, build a separate adapter. The same timeline can later ingest Safa's AI session extracts and link to curated notes.

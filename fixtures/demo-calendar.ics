@@ -1,6 +1,6 @@
 BEGIN:VCALENDAR
 VERSION:2.0
-PRODID:-//Brain//Synthetic Demo//EN
+PRODID:-//Defter//Synthetic Demo//EN
 BEGIN:VEVENT
 UID:demo-review
 DTSTART:20261030T070000Z

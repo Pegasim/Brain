@@ -11,9 +11,9 @@ from pathlib import Path
 from mcp import Client
 from mcp.client.stdio import StdioServerParameters
 
-from brain_demo.store import ROOT, TOOLS, lookup, refresh
+from defter.store import ROOT, TOOLS, lookup, refresh
 
-COMMAND = [sys.executable, "-m", "brain_demo"]
+COMMAND = [sys.executable, "-m", "defter"]
 
 
 class DemoTest(unittest.TestCase):
@@ -45,7 +45,7 @@ assert ok, details
 
     async def read_demo(self, db):
         params = StdioServerParameters(
-            command=sys.executable, args=["-m", "brain_demo", "serve", "--db", str(db)], cwd=ROOT,
+            command=sys.executable, args=["-m", "defter", "serve", "--db", str(db)], cwd=ROOT,
         )
         async with Client(params) as client:
             tools = (await client.list_tools()).tools

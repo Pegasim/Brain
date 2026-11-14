@@ -1,5 +1,5 @@
 [project]
-name = "brain"
+name = "defter"
 version = "0.2.0"
 description = "CFV timeline and curated memory for agents"
 requires-python = ">=3.12"
