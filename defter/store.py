@@ -17,7 +17,7 @@ from typing import TypedDict
 from urllib.parse import quote, unquote
 
 from cfv import db, search
-from cfv.ingest import Batch
+from cfv.ingest import Batch, drop_other_snapshots
 from cfv.sources import calendar_ics
 
 from . import changes, recall
@@ -35,9 +35,16 @@ class LookupResult(TypedDict):
     missing_references: list[str]
 
 
+def source(conn, kind: str, folder: Path, importer: str) -> Batch:
+    """One directory per source: records an earlier refresh read from another path (a moved vault) are dropped."""
+    batch = Batch(conn, kind, folder, importer)
+    drop_other_snapshots(conn, kind, batch.source_id)
+    return batch
+
+
 def ingest_sessions(conn, folder: Path, source_name: str):
     extractor = runpy.run_path(str(TOOLS / "extract/brain_extract.py"))
-    batch = Batch(conn, f"brain-sessions:{source_name}", folder, "brain-sessions@1")
+    batch = source(conn, f"brain-sessions:{source_name}", folder, "brain-sessions@1")
     for path in sorted(folder.rglob("*.jsonl")):
         session = extractor["parse_codex"](path)
         if session is None:
@@ -58,7 +65,7 @@ def ingest_sessions(conn, folder: Path, source_name: str):
 
 
 def ingest_archive(conn, folder: Path, source_name: str):
-    batch = Batch(conn, f"brain-archive:{source_name}", folder, "brain-archive@1")
+    batch = source(conn, f"brain-archive:{source_name}", folder, "brain-archive@1")
     redact = module()["load_redactor"](folder)
     conversations = []
     for path in sorted(folder.rglob("*.md")):
@@ -144,7 +151,7 @@ def note_title(meta: dict, body: str, path: Path) -> str:
 
 def ingest_notes(conn, vault: Path):
     """Index every Markdown note: dated log entries by their id, curated pages by their path."""
-    batch = Batch(conn, "brain-notes", vault, "brain-notes@1")
+    batch = source(conn, "brain-notes", vault, "brain-notes@1")
     redact = module()["load_redactor"](vault)
     root = vault / "notes"
     commits = git_dates(vault)

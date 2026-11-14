@@ -83,6 +83,14 @@ class ChangesTest(unittest.TestCase):
         self.assertEqual(initial["note:topics/%C4%B0zmir-ofis"], "2026-09-01T12:00:00Z")
         self.assertNotEqual(read(self.db, "topics/draft")["timestamp"][:10], "2026-09-01")
 
+    def test_moved_vault_replaces_its_records_instead_of_duplicating_them(self):
+        refresh(self.db, self.vault, now=at(1))
+        moved = self.temporary / "elsewhere"
+        shutil.move(self.vault, moved)
+        refresh(self.db, moved, now=at(2))  # the same references from a new path would collide if both were kept
+        self.assertEqual(self.changes("2026-11-14T02:00:00Z"), {})
+        self.assertEqual(read(self.db, "topics/alpha")["source"], str((moved / "notes/topics/alpha.md").resolve()))
+
     def test_read_returns_full_text_by_reference_or_path_in_windows(self):
         (self.notes / "long.md").write_text("# Long\n\n" + "word " * 2000)
         refresh(self.db, self.vault, now=at(1))
