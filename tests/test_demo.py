@@ -135,6 +135,32 @@ assert ok, details
             self.assertEqual(lookup(db, "scheduling decision")["missing_references"],
                              ["session:codex:demo-review-update"])
 
+    def test_curated_notes_are_indexed_by_path(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            temporary = Path(temporary)
+            vault, db = temporary / "vault", temporary / "cfv.sqlite"
+            notes = vault / "notes"
+            (notes / "topics").mkdir(parents=True)
+            (notes / "topics" / "harbour.md").write_text("# Harbour project\n\nThe harbour pilot uses weekly audits.\n")
+            (notes / "topics" / "İzmir-ofis.md").write_text(
+                '---\ntitle: "Office plan"\nupdated: 2026-11-02\ntags:\n  - office\n---\nThe office move needs a lease.\n')
+            (notes / "INDEX.md").write_text("# Index\n\nSee note:topics/harbour for the harbour pilot.\n")
+            (notes / "empty.md").write_text("---\ntitle: Empty\n---\n\n")
+            refresh(db, vault)
+            harbour = lookup(db, "harbour pilot")
+            found = {r["reference"]: r for r in harbour["evidence"]}
+            self.assertEqual(set(found), {"note:topics/harbour", "note:INDEX"})
+            self.assertEqual(found["note:INDEX"]["supports"], ["note:topics/harbour"])
+            self.assertEqual(found["note:topics/harbour"]["title"], "Harbour project")
+            self.assertEqual(harbour["missing_references"], [])
+            office = lookup(db, "lease")["evidence"]
+            self.assertEqual([(r["reference"], r["title"], r["timestamp"][:10]) for r in office],
+                             [("note:topics/%C4%B0zmir-ofis", "Office plan", "2026-11-02")])
+            conn = sqlite3.connect(db)
+            count = conn.execute("SELECT count(*) FROM event WHERE kind='brain_note'").fetchone()[0]
+            conn.close()
+            self.assertEqual(count, 3)
+
 
 if __name__ == "__main__":
     unittest.main()

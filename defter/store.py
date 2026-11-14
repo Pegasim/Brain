@@ -82,28 +82,63 @@ def ingest_archive(conn, folder: Path, source_name: str):
         )
 
 
+def split_note(text: str) -> tuple[dict, str]:
+    """Return a note's top-level frontmatter fields and body; a file without frontmatter is all body."""
+    if text.startswith("---\n") and "\n---\n" in text[3:]:
+        header, body = text[4:].split("\n---\n", 1)
+        meta = {}
+        for line in header.splitlines():
+            key, separator, value = line.partition(": ")
+            if separator and not key.startswith((" ", "-")):
+                meta[key.strip()] = value.strip()
+        return meta, body
+    return {}, text
+
+
+def note_day(meta: dict, path: Path) -> tuple[date, str]:
+    """Use the note's own date, then its last update, then the file's modification day."""
+    for key in ("date", "updated"):
+        value = meta.get(key, "").strip("\"'")
+        try:
+            return date.fromisoformat(value[:10]), key
+        except ValueError:
+            continue
+    return dt.datetime.fromtimestamp(path.stat().st_mtime).date(), "mtime"
+
+
+def note_title(meta: dict, body: str, path: Path) -> str:
+    title = meta.get("title", "")
+    if title.startswith('"'):
+        title = json.loads(title)
+    if title:
+        return title
+    heading = next((line[2:].strip() for line in body.splitlines() if line.startswith("# ")), "")
+    return heading or path.stem
+
+
 def ingest_notes(conn, vault: Path):
+    """Index every Markdown note: dated log entries by their id, curated pages by their path."""
     batch = Batch(conn, "brain-notes", vault, "brain-notes@1")
     redact = module()["load_redactor"](vault)
-    for path in sorted((vault / "notes").rglob("*.md")):
-        text = path.read_text(encoding="utf-8")
-        if not text.startswith("---\n") or "\n---\n" not in text:
+    root = vault / "notes"
+    for path in sorted(root.rglob("*.md")):
+        meta, body = split_note(path.read_text(encoding="utf-8"))
+        if not body.strip():
             continue
-        header, body = text[4:].split("\n---\n", 1)
-        meta = dict(line.split(": ", 1) for line in header.splitlines() if ": " in line)
-        # The dated maintenance log is canonical for this adapter.
-        if not meta.get("id") or not meta.get("date"):
-            continue
-        day = date.fromisoformat(meta["date"])
+        day, basis = note_day(meta, path)
+        rel = path.relative_to(root).with_suffix("").as_posix()
+        if meta.get("id") and basis == "date":
+            # Dated maintenance-log entry: its id is the stable reference other notes cite.
+            external_id, ref = meta["id"], f"note:{meta['id']}"
+        else:
+            # Curated page (index, timeline, topic, personal): identified by its path in the vault.
+            external_id, ref = f"path:{rel}", f"note:{quote(rel, safe='/')}"
         body, _ = redact(body)
-        title = meta.get("title", path.stem)
-        if title.startswith('"'):
-            title = json.loads(title)
         refs = re.findall(r"(?<!\w)(?:session|note|event):[A-Za-z0-9_.:%/@+-]+", body)
         batch.event(
-            meta["id"], "brain_note", dt.datetime.combine(day, dt.time(), dt.timezone.utc),
-            title=redact(title)[0], body=body, day=day.isoformat(), time_quality="day",
-            payload={"brain_ref": f"note:{meta['id']}", "evidence_refs": refs,
+            external_id, "brain_note", dt.datetime.combine(day, dt.time(), dt.timezone.utc),
+            title=redact(note_title(meta, body, path))[0], body=body, day=day.isoformat(), time_quality="day",
+            payload={"brain_ref": ref, "evidence_refs": refs, "date_basis": basis, "note_path": rel,
                      "source_file": str(path.resolve())},
         )
 

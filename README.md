@@ -2,7 +2,7 @@
 
 Defter combines CFV's event timeline with the second brain's conversation capture and memory maintenance. An existing agent queries both through a local, read-only MCP server.
 
-The current integration imports calendar exports, Codex traces and redacted conversation archives. It indexes decisions filed through the maintenance inbox and follows their evidence references. The bundled demo uses synthetic data.
+The current integration imports calendar exports, Codex traces and redacted conversation archives. It indexes decisions filed through the maintenance inbox and follows their evidence references. Curated notes without log frontmatter, such as indexes, timelines and topic pages, are indexed by their vault path and cited as `note:<path>`; their date comes from a `date` or `updated` field, otherwise from the file's modification time. The bundled demo uses synthetic data.
 
 ## Run the demo
 
