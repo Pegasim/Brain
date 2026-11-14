@@ -51,12 +51,19 @@ assert ok, details
             tools = (await client.list_tools()).tools
             self.assertTrue(all(tool.annotations.read_only_hint for tool in tools))
             names = {tool.name for tool in tools}
-            self.assertEqual(names, {"lookup", "recall", "search", "when", "timeline", "digest", "people", "photos",
-                                     "week_page"})
+            self.assertEqual(names, {"lookup", "recall", "read", "delta", "search", "when", "timeline", "digest",
+                                     "people", "photos", "week_page"})
             recalled = await client.call_tool("recall", {"query": "when is the demo review"})
             self.assertFalse(recalled.is_error, recalled.content)
-            self.assertEqual(recalled.structured_content["evidence"][0]["kind"], "brain_note")
+            top = recalled.structured_content["evidence"][0]
+            self.assertEqual(top["kind"], "brain_note")
             self.assertFalse(recalled.structured_content["semantic"])
+            full = await client.call_tool("read", {"reference": top["reference"]})
+            self.assertFalse(full.is_error, full.content)
+            self.assertIn("Monday", full.structured_content["text"])
+            changed = await client.call_tool("delta", {"since": "2000-01-01"})
+            self.assertFalse(changed.is_error, changed.content)
+            self.assertEqual({c["change"] for c in changed.structured_content["changes"]}, {"initial"})
             main = await self.call(client, "demo review", "2026-10-30")
             by_kind = {row["kind"]: row for row in main}
             self.assertEqual(len(main), 3)

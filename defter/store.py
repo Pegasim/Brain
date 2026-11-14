@@ -7,19 +7,20 @@ import os
 import re
 import runpy
 import sqlite3
+import subprocess
 import tempfile
 from collections import Counter
 from contextlib import closing
 from datetime import date
 from pathlib import Path
 from typing import TypedDict
-from urllib.parse import quote
+from urllib.parse import quote, unquote
 
 from cfv import db, search
 from cfv.ingest import Batch
 from cfv.sources import calendar_ics
 
-from . import recall
+from . import changes, recall
 from .maintenance import ROOT, TOOLS, module, run
 
 FIXTURES = ROOT / "fixtures"
@@ -101,14 +102,33 @@ def split_note(text: str) -> tuple[dict, str]:
     return {}, text
 
 
-def note_day(meta: dict, path: Path) -> tuple[date, str]:
-    """Use the note's own date, then its last update, then the file's modification day."""
+def git_dates(vault: Path) -> dict[str, dt.datetime]:
+    """Last commit time of each file under notes/, keyed by vault-relative path; empty outside a git checkout."""
+    try:
+        log = subprocess.run(
+            ["git", "-c", "core.quotePath=false", "-C", str(vault), "log", "--relative", "--format=%x00%cI",
+             "--name-only", "--", "notes"], capture_output=True, text=True, check=True, timeout=120).stdout
+    except (OSError, subprocess.SubprocessError):
+        return {}
+    dates, current = {}, None
+    for line in log.splitlines():
+        if line.startswith("\0"):
+            current = dt.datetime.fromisoformat(line[1:])
+        elif line and current:
+            dates.setdefault(line, current)  # newest commit comes first
+    return dates
+
+
+def note_day(meta: dict, path: Path, committed: dt.datetime | None = None) -> tuple[date, str]:
+    """Use the note's own date, then its last update, then its last git commit, then the file's modification day."""
     for key in ("date", "updated"):
         value = meta.get(key, "").strip("\"'")
         try:
             return date.fromisoformat(value[:10]), key
         except ValueError:
             continue
+    if committed:
+        return committed.date(), "git"
     return dt.datetime.fromtimestamp(path.stat().st_mtime).date(), "mtime"
 
 
@@ -127,11 +147,13 @@ def ingest_notes(conn, vault: Path):
     batch = Batch(conn, "brain-notes", vault, "brain-notes@1")
     redact = module()["load_redactor"](vault)
     root = vault / "notes"
+    commits = git_dates(vault)
     for path in sorted(root.rglob("*.md")):
         meta, body = split_note(path.read_text(encoding="utf-8"))
         if not body.strip():
             continue
-        day, basis = note_day(meta, path)
+        committed = commits.get(path.relative_to(vault).as_posix())
+        day, basis = note_day(meta, path, committed)
         rel = path.relative_to(root).with_suffix("").as_posix()
         if meta.get("id") and basis == "date":
             # Dated maintenance-log entry: its id is the stable reference other notes cite.
@@ -145,12 +167,14 @@ def ingest_notes(conn, vault: Path):
             external_id, "brain_note", dt.datetime.combine(day, dt.time(), dt.timezone.utc),
             title=redact(note_title(meta, body, path))[0], body=body, day=day.isoformat(), time_quality="day",
             payload={"brain_ref": ref, "evidence_refs": refs, "date_basis": basis, "note_path": rel,
-                     "source_file": str(path.resolve())},
+                     "source_file": str(path.resolve()),
+                     **({"committed_utc": changes.utc(committed)} if committed else {})},
         )
 
 
-def refresh(path: Path, vault: Path, calendars=(), sessions: Path | None = None, source_name="codex", archive: Path | None = None):
-    """Refresh selected sources in a staging copy, retaining all other CFV sources."""
+def refresh(path: Path, vault: Path, calendars=(), sessions: Path | None = None, source_name="codex",
+            archive: Path | None = None, now: dt.datetime | None = None):
+    """Refresh selected sources in a staging copy, retaining all other CFV sources; log what changed at `now`."""
     if not re.fullmatch(r"[A-Za-z0-9_-]{1,40}", source_name):
         raise ValueError("Source name must be a short slug of letters, digits, '_' or '-'")
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -172,6 +196,7 @@ def refresh(path: Path, vault: Path, calendars=(), sessions: Path | None = None,
             with closing(db.connect(stage)) as conn:
                 conn.executescript(db.schema_sql())
                 conn.executescript(recall.SCHEMA)
+                conn.executescript(changes.SCHEMA)
                 conn.execute(
                     "CREATE TABLE IF NOT EXISTS brain_reference "
                     "(ref TEXT PRIMARY KEY, event_id INTEGER UNIQUE REFERENCES event(id) ON DELETE CASCADE)"
@@ -194,6 +219,7 @@ def refresh(path: Path, vault: Path, calendars=(), sessions: Path | None = None,
                     refs = [(reference(row), row["id"]) for row in rows]
                     conn.executemany("INSERT INTO brain_reference VALUES (?, ?)", refs)
                     recall.index_passages(conn)
+                    changes.record_changes(conn, now or dt.datetime.now(dt.timezone.utc))
                 conn.execute(f"PRAGMA application_id = {APPLICATION_ID}")
                 if conn.execute("PRAGMA foreign_key_check").fetchall():
                     raise ValueError("Source references failed validation")
@@ -296,3 +322,42 @@ def lookup(path: Path, topic: str, start: str | None = None, end: str | None = N
                 break
             pending.extend(refs)
         return {"evidence": list(results.values()), "missing_references": missing}
+
+
+class ReadResult(TypedDict):
+    reference: str
+    kind: str
+    title: str | None
+    timestamp: str
+    path: str | None
+    source: str | None
+    supports: list[str]
+    text: str
+    offset: int
+    total_chars: int
+    has_more: bool
+
+
+def read(path: Path, reference: str, offset: int = 0, limit: int = 20000) -> ReadResult:
+    """A record's full stored text by reference, or a note by its vault path (`topics/bilun`, `notes/topics/bilun.md`)."""
+    wanted = reference.strip()
+    if not wanted or len(wanted) > 500:
+        raise ValueError("Use a reference from recall, lookup or delta")
+    offset, limit = max(0, offset), max(1, min(limit, 50000))
+    refs = [wanted]
+    if wanted.startswith("note:"):
+        refs.append("note:" + quote(unquote(wanted[5:]), safe="/"))
+    note_path = wanted.removeprefix("note:").removeprefix("notes/").removesuffix(".md")
+    with closing(sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True)) as conn:
+        conn.row_factory = sqlite3.Row
+        query = ("SELECT r.ref, e.kind, e.title, e.start_utc, e.body, e.payload, s.raw_path FROM brain_reference r "
+                 "JOIN event e ON e.id=r.event_id JOIN source s ON s.id=e.source_id WHERE e.kind != 'dream' AND ")
+        row = conn.execute(query + "r.ref IN (?, ?)", (refs[0], refs[-1])).fetchone() or conn.execute(
+            query + "e.kind='brain_note' AND json_extract(e.payload, '$.note_path')=?", (unquote(note_path),)).fetchone()
+    if row is None:
+        raise ValueError(f"No record for {reference!r}. Use a reference from recall, lookup or delta.")
+    payload, body = json.loads(row["payload"] or "{}"), row["body"] or ""
+    return {"reference": row["ref"], "kind": row["kind"], "title": row["title"], "timestamp": row["start_utc"],
+            "path": payload.get("note_path"), "source": payload.get("source_file") or row["raw_path"],
+            "supports": payload.get("evidence_refs", []), "text": body[offset:offset + limit], "offset": offset,
+            "total_chars": len(body), "has_more": offset + limit < len(body)}
