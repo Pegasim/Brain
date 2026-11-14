@@ -60,6 +60,8 @@ Pending inbox entries become searchable after consolidation and refresh. Rebuild
 
 Serve that store with `uv run python -m defter serve --db data/private/processed/cfv.sqlite`. The server reads the selected database. The host agent and its model receive the retrieved excerpts.
 
+To review how agents use the server, set `DEFTER_QUERY_LOG` to a file path. Each `recall`, `read`, `delta` or `lookup` call then appends one JSON line with the time, `DEFTER_CLIENT` (a label you set per agent), the arguments, the number of results, the top references, the latency and any error. The log contains the questions asked, so keep it with the private data.
+
 ## Ask in plain language
 
 `recall` answers a question in any wording, English or Turkish. It ranks curated notes first, fusing FTS5 keyword matches with bge-m3 passage similarity by reciprocal rank, then adds conversations that contain every word of four or more letters from the question. Dotted and dotless i and Turkish diacritics are folded, and words longer than five letters match by their first five, so suffixed forms still match.

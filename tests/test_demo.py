@@ -1,4 +1,5 @@
 import asyncio
+import json
 import os
 import sqlite3
 import runpy
@@ -42,10 +43,17 @@ assert ok, details
             before = asyncio.run(self.read_demo(db))
             subprocess.run(command, cwd=ROOT, check=True, capture_output=True)
             self.assertEqual(asyncio.run(self.read_demo(db)), before)
+            log = [json.loads(line) for line in (db.parent / "queries.jsonl").read_text().splitlines()]
+            self.assertEqual({(e["client"], e["tool"]) for e in log},
+                             {("test", tool) for tool in ("recall", "read", "delta", "lookup")})
+            recalled = next(e for e in log if e["tool"] == "recall")
+            self.assertEqual((recalled["args"]["query"], recalled["semantic"]), ("when is the demo review", False))
+            self.assertTrue(recalled["top"][0].startswith("note:") and recalled["ms"] >= 0)
 
     async def read_demo(self, db):
         params = StdioServerParameters(
             command=sys.executable, args=["-m", "defter", "serve", "--db", str(db)], cwd=ROOT,
+            env={**os.environ, "DEFTER_QUERY_LOG": str(db.parent / "queries.jsonl"), "DEFTER_CLIENT": "test"},
         )
         async with Client(params) as client:
             tools = (await client.list_tools()).tools
