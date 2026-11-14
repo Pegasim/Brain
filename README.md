@@ -41,7 +41,7 @@ uv run python -m defter refresh \
   --source-name archive
 ```
 
-Use `--sessions /absolute/path/codex-traces --source-name laptop` for raw Codex traces in the extractor's supported format. Each source name identifies one capture directory. Reimport the same directory under the same name. Calendar ingestion uses CFV's existing ICS recurrence and timezone handling.
+Use `--sessions /absolute/path/codex-traces --source-name laptop` for raw Codex traces in the extractor's supported format. Use `--legacy /absolute/path/legacy` for older conversation exports (Claude web, ChatGPT, Hermes, Cursor) whose YAML frontmatter has a `title` and a `date` or `updated_at`; they are cited as `session:legacy:<path>`. Each source name identifies one capture directory. Reimport the same directory under the same name. Calendar ingestion uses CFV's existing ICS recurrence and timezone handling.
 
 Write a durable entry with the imported maintenance CLI. Replace the example evidence reference with one returned by lookup:
 
@@ -77,7 +77,7 @@ uv run python -m defter recall "When did the review schedule change?" --db data/
 
 `read` returns a record's full stored text by a reference from recall, lookup or delta, or a note by its vault path such as `topics/bilun`, in windows of up to 50,000 characters. It works when the agent cannot open the server's files, for example over ssh.
 
-`delta` lists records added, changed or removed since an ISO date or time, oldest first, with a cursor to continue or to ask again later. Each refresh compares every record with the previous one, so change times are refresh times. The first refresh has nothing to compare with and marks every record `initial`, dated by a note's last git commit or otherwise the record's own timestamp.
+`delta` lists records added, changed or removed since an ISO date or time, oldest first, with a cursor to continue or to ask again later. Each refresh compares every record with the previous one, so change times are refresh times. The first refresh has nothing to compare with and marks every record `initial`, dated by a note's last git commit or otherwise the record's own timestamp. The first import of a new source does the same for that source's records, so adding an old export does not list it as new.
 
 ```sh
 uv run python -m defter delta --since 2026-11-13 --db data/private/processed/cfv.sqlite

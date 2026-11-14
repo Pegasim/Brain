@@ -113,6 +113,7 @@ def main():
             child.add_argument("--sessions", type=Path, help="Directory of Codex JSONL session traces")
             child.add_argument("--archive", type=Path, help="Redacted conversation Markdown from the extractor")
             child.add_argument("--source-name", default="codex", help="Stable identity for this session source")
+            child.add_argument("--legacy", type=Path, help="Older conversation exports with YAML frontmatter")
         if command == "recall":
             child.add_argument("query")
             child.add_argument("--start")
@@ -138,7 +139,8 @@ def main():
             print(f"Loaded synthetic fixtures through CFV and maintenance tools into {args.db}")
             return
         if args.command == "refresh":
-            refresh(args.db, args.vault, args.calendar, args.sessions, args.source_name, args.archive)
+            refresh(args.db, args.vault, args.calendar, args.sessions, args.source_name, args.archive,
+                    legacy=args.legacy)
             print(f"Refreshed CFV timeline at {args.db}")
             return
         if not args.db.is_file():

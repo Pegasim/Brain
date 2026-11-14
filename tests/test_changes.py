@@ -47,6 +47,21 @@ class ChangesTest(unittest.TestCase):
         refresh(self.db, self.vault, now=at(4))
         self.assertEqual(self.changes("2026-11-14T06:30:00+03:00"), {"note:topics/beta": "added"})  # 03:30 UTC
 
+    def test_a_newly_imported_source_keeps_its_own_dates(self):
+        refresh(self.db, self.vault, now=at(1))
+        legacy = self.temporary / "legacy"
+        legacy.mkdir()
+        (legacy / "old-chat.md").write_text(
+            "---\ntype: conversation\ntitle: Old chat\ndate: '2025-03-01'\n---\n\nan old plan\n")
+        (self.notes / "epsilon.md").write_text("# Epsilon\n\nNew note.\n")
+        refresh(self.db, self.vault, now=at(2), legacy=legacy)
+        self.assertEqual(self.changes("2026-11-14T02:00:00Z"), {"note:topics/epsilon": "added"})
+        self.assertEqual(self.changes("2025-03-01")["session:legacy:old-chat"], "initial")
+        (legacy / "old-chat.md").write_text(
+            "---\ntype: conversation\ntitle: Old chat\ndate: '2025-03-01'\n---\n\nan old plan, continued\n")
+        refresh(self.db, self.vault, now=at(3), legacy=legacy)
+        self.assertEqual(self.changes("2026-11-14T03:00:00Z"), {"session:legacy:old-chat": "changed"})
+
     def test_cursor_pages_through_every_change_once(self):
         refresh(self.db, self.vault, now=at(1))
         seen, cursor, result = [], None, delta(self.db, since="2000-01-01", limit=2)

@@ -40,19 +40,28 @@ def parse_time(value: str) -> str:
     return utc(moment if moment.tzinfo else moment.replace(tzinfo=dt.timezone.utc))
 
 
-def record_changes(conn: sqlite3.Connection, now: dt.datetime):
-    """Compare the refreshed records with the previous refresh. Called by refresh inside its staging transaction."""
+def source_kinds(conn: sqlite3.Connection) -> set[str]:
+    """Kinds of the sources that currently have records; refresh reads them before importing."""
+    return {row[0] for row in conn.execute("SELECT DISTINCT s.kind FROM event e JOIN source s ON s.id=e.source_id")}
+
+
+def record_changes(conn: sqlite3.Connection, now: dt.datetime, known_sources: set[str] = frozenset()):
+    """Compare the refreshed records with the previous refresh. Called by refresh inside its staging transaction.
+
+    Records of a source imported for the first time (every source on the first refresh, or for example a newly
+    added export folder) are "initial" and keep their own dates, so old material does not show up as new.
+    """
     stamp = utc(now)
     first = not conn.execute("SELECT 1 FROM brain_change LIMIT 1").fetchone()
     old = {row[0]: row[1:] for row in conn.execute("SELECT ref, kind, title, hash, change FROM brain_change")}
     rows, seen = [], set()
-    records = conn.execute("SELECT r.ref, e.kind, e.title, e.body, e.start_utc, e.payload FROM brain_reference r "
-                           "JOIN event e ON e.id=r.event_id")
-    for ref, kind, title, body, start, payload in records:
+    records = conn.execute("SELECT r.ref, e.kind, e.title, e.body, e.start_utc, e.payload, s.kind FROM brain_reference r "
+                           "JOIN event e ON e.id=r.event_id JOIN source s ON s.id=e.source_id")
+    for ref, kind, title, body, start, payload, source in records:
         seen.add(ref)
         digest = hashlib.sha256("\0".join((title or "", body or "", start or "")).encode()).hexdigest()
         previous = old.get(ref)
-        if first:
+        if previous is None and (first or source not in known_sources):
             rows.append((ref, kind, title, digest, "initial", json.loads(payload or "{}").get("committed_utc") or start))
         elif previous is None or previous[3] == "removed":
             rows.append((ref, kind, title, digest, "added", stamp))

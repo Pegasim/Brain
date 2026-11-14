@@ -96,6 +96,68 @@ def ingest_archive(conn, folder: Path, source_name: str):
         )
 
 
+def yaml_scalar(value: str) -> str:
+    if len(value) >= 2 and value[0] == value[-1] == "'":
+        return value[1:-1].replace("''", "'")
+    if len(value) >= 2 and value[0] == value[-1] == '"':
+        try:
+            return json.loads(value)
+        except ValueError:
+            return value[1:-1]
+    return value
+
+
+def legacy_meta(header: str) -> dict:
+    """Scalar fields of the older exports' YAML frontmatter; one level of nesting becomes `parent.key`."""
+    meta, parent = {}, None
+    for line in header.splitlines():
+        key, separator, value = line.strip().partition(":")
+        if not separator or line.lstrip().startswith("- "):
+            continue
+        if line.startswith((" ", "\t")):
+            if parent:
+                meta[f"{parent}.{key}"] = yaml_scalar(value.strip())
+            continue
+        parent = None if value.strip() else key
+        if value.strip():
+            meta[key] = yaml_scalar(value.strip())
+    return meta
+
+
+def ingest_legacy(conn, folder: Path, source_name: str = "legacy"):
+    """Older conversation exports (Claude web, ChatGPT, Hermes, Cursor) with YAML frontmatter, cited by archive path."""
+    batch = source(conn, f"brain-legacy:{source_name}", folder, "brain-legacy@1")
+    redact = module()["load_redactor"](folder)
+    for path in sorted(folder.rglob("*.md")):
+        text = path.read_text(encoding="utf-8", errors="replace")
+        if not text.startswith("---\n") or "\n---\n" not in text[3:]:
+            continue
+        header, body = text[4:].split("\n---\n", 1)
+        meta = legacy_meta(header)
+        if meta.get("type") != "conversation" or not body.strip():
+            continue
+        rel = path.relative_to(folder).with_suffix("").as_posix()
+        stamp, day, basis = meta.get("updated_at"), meta.get("date", "")[:10], "updated_at"
+        try:
+            when, quality = dt.datetime.fromisoformat(stamp), "exact"
+            if when.utcoffset() is None:
+                when = when.replace(tzinfo=dt.timezone.utc)
+            day = None
+        except (TypeError, ValueError):
+            try:
+                when, quality, basis = dt.datetime.combine(date.fromisoformat(day), dt.time(), dt.timezone.utc), "day", "date"
+            except ValueError:
+                day = dt.datetime.fromtimestamp(path.stat().st_mtime).date().isoformat()
+                when, quality, basis = dt.datetime.combine(date.fromisoformat(day), dt.time(), dt.timezone.utc), "day", "mtime"
+        batch.event(
+            f"path:{rel}", "brain_conversation", when, title=redact(meta.get("title") or path.stem)[0],
+            body=redact(body)[0], time_quality=quality, day=day,
+            payload={"brain_ref": f"session:{source_name}:{quote(rel, safe='/')}", "date_basis": basis,
+                     "harness": meta.get("transcript_import.harness") or meta.get("source_tool") or "unknown",
+                     "source_file": str(path.resolve())},
+        )
+
+
 def split_note(text: str) -> tuple[dict, str]:
     """Return a note's top-level frontmatter fields and body; a file without frontmatter is all body."""
     if text.startswith("---\n") and "\n---\n" in text[3:]:
@@ -180,15 +242,16 @@ def ingest_notes(conn, vault: Path):
 
 
 def refresh(path: Path, vault: Path, calendars=(), sessions: Path | None = None, source_name="codex",
-            archive: Path | None = None, now: dt.datetime | None = None):
+            archive: Path | None = None, now: dt.datetime | None = None, legacy: Path | None = None):
     """Refresh selected sources in a staging copy, retaining all other CFV sources; log what changed at `now`."""
     if not re.fullmatch(r"[A-Za-z0-9_-]{1,40}", source_name):
         raise ValueError("Source name must be a short slug of letters, digits, '_' or '-'")
     path.parent.mkdir(parents=True, exist_ok=True)
     if sessions is not None and not sessions.is_dir():
         raise ValueError(f"Session directory does not exist: {sessions}")
-    if archive is not None and not archive.is_dir():
-        raise ValueError(f"Archive directory does not exist: {archive}")
+    for folder, label in ((archive, "Archive"), (legacy, "Legacy archive")):
+        if folder is not None and not folder.is_dir():
+            raise ValueError(f"{label} directory does not exist: {folder}")
     with open(path.with_suffix(".lock"), "a") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
         with tempfile.NamedTemporaryFile(dir=path.parent, suffix=".sqlite", delete=False) as temporary:
@@ -208,6 +271,7 @@ def refresh(path: Path, vault: Path, calendars=(), sessions: Path | None = None,
                     "CREATE TABLE IF NOT EXISTS brain_reference "
                     "(ref TEXT PRIMARY KEY, event_id INTEGER UNIQUE REFERENCES event(id) ON DELETE CASCADE)"
                 )
+                known_sources = changes.source_kinds(conn)
                 with conn:
                     if calendars:
                         calendar_ics.ingest(conn, list(calendars))
@@ -215,6 +279,8 @@ def refresh(path: Path, vault: Path, calendars=(), sessions: Path | None = None,
                         ingest_sessions(conn, sessions, source_name)
                     if archive is not None:
                         ingest_archive(conn, archive, source_name)
+                    if legacy is not None:
+                        ingest_legacy(conn, legacy)
                     ingest_notes(conn, vault)
                     conn.execute("INSERT OR REPLACE INTO meta VALUES ('brain_mode', 'private')")
                     conn.execute("DELETE FROM brain_reference")
@@ -226,7 +292,7 @@ def refresh(path: Path, vault: Path, calendars=(), sessions: Path | None = None,
                     refs = [(reference(row), row["id"]) for row in rows]
                     conn.executemany("INSERT INTO brain_reference VALUES (?, ?)", refs)
                     recall.index_passages(conn)
-                    changes.record_changes(conn, now or dt.datetime.now(dt.timezone.utc))
+                    changes.record_changes(conn, now or dt.datetime.now(dt.timezone.utc), known_sources)
                 conn.execute(f"PRAGMA application_id = {APPLICATION_ID}")
                 if conn.execute("PRAGMA foreign_key_check").fetchall():
                     raise ValueError("Source references failed validation")

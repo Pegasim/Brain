@@ -12,7 +12,7 @@ from pathlib import Path
 from mcp import Client
 from mcp.client.stdio import StdioServerParameters
 
-from defter.store import ROOT, TOOLS, lookup, refresh
+from defter.store import ROOT, TOOLS, lookup, read, refresh
 
 COMMAND = [sys.executable, "-m", "defter"]
 
@@ -122,6 +122,26 @@ assert ok, details
             refs = {r["reference"] for r in lookup(db, "harbour talk")["evidence"]}
             self.assertEqual(refs, {"session:archive:codex:shared:a", "session:archive:codex:shared:b",
                                     "session:archive:codex:solo"})
+
+    def test_legacy_exports_are_imported_with_their_yaml_dates(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            temporary = Path(temporary)
+            legacy = temporary / "legacy"
+            (legacy / "chatgpt").mkdir(parents=True)
+            (legacy / "chatgpt" / "2026-07-20-plan.md").write_text(
+                "---\ntype: conversation\ntitle: 'I''m planning: the harbour'\nid: chatgpt-1\ndate: '2026-07-20'\n"
+                "transcript_import:\n  of: 1\n  harness: chatgpt\n---\n\n**User**: plan the harbour audit\n")
+            (legacy / "cursor-chat.md").write_text(
+                "---\ntype: conversation\ntitle: Harbour code\nupdated_at: '2026-08-21T17:02:10.000Z'\n"
+                "embed_skip:\n  reason: oversized\ntags:\n  - cursor-export\nsource_tool: cursor\n---\n\nharbour code review\n")
+            (legacy / "notes.md").write_text("---\ntype: note\ntitle: Not a chat\n---\nharbour\n")
+            db = temporary / "cfv.sqlite"
+            refresh(db, temporary / "vault", legacy=legacy)
+            found = {r["reference"]: r for r in lookup(db, "harbour")["evidence"]}
+            self.assertEqual({ref: (r["title"], r["timestamp"]) for ref, r in found.items()}, {
+                "session:legacy:chatgpt/2026-07-20-plan": ("I'm planning: the harbour", "2026-07-20T00:00:00Z"),
+                "session:legacy:cursor-chat": ("Harbour code", "2026-08-21T17:02:10Z")})
+            self.assertIn("plan the harbour audit", read(db, "session:legacy:chatgpt/2026-07-20-plan")["text"])
 
     def test_load_preserves_other_files(self):
         with tempfile.TemporaryDirectory() as temporary:
