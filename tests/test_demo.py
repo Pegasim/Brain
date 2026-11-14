@@ -51,7 +51,12 @@ assert ok, details
             tools = (await client.list_tools()).tools
             self.assertTrue(all(tool.annotations.read_only_hint for tool in tools))
             names = {tool.name for tool in tools}
-            self.assertEqual(names, {"lookup", "search", "when", "timeline", "digest", "people", "photos", "week_page"})
+            self.assertEqual(names, {"lookup", "recall", "search", "when", "timeline", "digest", "people", "photos",
+                                     "week_page"})
+            recalled = await client.call_tool("recall", {"query": "when is the demo review"})
+            self.assertFalse(recalled.is_error, recalled.content)
+            self.assertEqual(recalled.structured_content["evidence"][0]["kind"], "brain_note")
+            self.assertFalse(recalled.structured_content["semantic"])
             main = await self.call(client, "demo review", "2026-10-30")
             by_kind = {row["kind"]: row for row in main}
             self.assertEqual(len(main), 3)
@@ -87,6 +92,21 @@ assert ok, details
             self.assertEqual(len(result), 1)
             self.assertEqual(result[0]["kind"], "brain_conversation")
             self.assertEqual(result[0]["reference"], "session:archive:codex:demo-review-update")
+
+    def test_archive_conversations_sharing_a_session_id_stay_separate(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            temporary = Path(temporary)
+            archive = temporary / "archive"
+            archive.mkdir()
+            for name, sid, day in (("a", "shared", "01"), ("b", "shared", "05"), ("c", "solo", "07")):
+                (archive / f"{name}.md").write_text(
+                    f'---\ntype: "conversation"\nharness: "codex"\nsession_id: "{sid}"\ntitle: "Chat {name}"\n'
+                    f'started: "2026-10-{day}T10:00:00+00:00"\n---\nharbour talk {name}\n')
+            db = temporary / "cfv.sqlite"
+            refresh(db, temporary / "vault", archive=archive, source_name="archive")
+            refs = {r["reference"] for r in lookup(db, "harbour talk")["evidence"]}
+            self.assertEqual(refs, {"session:archive:codex:shared:a", "session:archive:codex:shared:b",
+                                    "session:archive:codex:solo"})
 
     def test_load_preserves_other_files(self):
         with tempfile.TemporaryDirectory() as temporary:

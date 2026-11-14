@@ -8,6 +8,7 @@ import re
 import runpy
 import sqlite3
 import tempfile
+from collections import Counter
 from contextlib import closing
 from datetime import date
 from pathlib import Path
@@ -18,6 +19,7 @@ from cfv import db, search
 from cfv.ingest import Batch
 from cfv.sources import calendar_ics
 
+from . import recall
 from .maintenance import ROOT, TOOLS, module, run
 
 FIXTURES = ROOT / "fixtures"
@@ -56,6 +58,8 @@ def ingest_sessions(conn, folder: Path, source_name: str):
 
 def ingest_archive(conn, folder: Path, source_name: str):
     batch = Batch(conn, f"brain-archive:{source_name}", folder, "brain-archive@1")
+    redact = module()["load_redactor"](folder)
+    conversations = []
     for path in sorted(folder.rglob("*.md")):
         text = path.read_text(encoding="utf-8")
         if not text.startswith("---\n") or "\n---\n" not in text:
@@ -66,19 +70,21 @@ def ingest_archive(conn, folder: Path, source_name: str):
             key, separator, value = line.partition(": ")
             if separator:
                 meta[key] = json.loads(value)
-        if meta.get("type") != "conversation":
-            continue
+        if meta.get("type") == "conversation":
+            conversations.append((path, meta, body))
+    # Some harnesses reuse one session id for separate conversations; those are told apart by archive file.
+    counts = Counter((meta["harness"], meta["session_id"]) for _, meta, _ in conversations)
+    for path, meta, body in conversations:
         sid, harness = meta["session_id"], meta["harness"]
+        identity = f"{harness}:{sid}" + (f":{path.stem}" if counts[harness, sid] > 1 else "")
         when = dt.datetime.fromisoformat(meta["started"])
         if when.utcoffset() is None:
             raise ValueError(f"Archive timestamp has no timezone: {path.name}")
-        redact = module()["load_redactor"](folder)
         batch.event(
-            f"{harness}:{sid}", "brain_conversation", when,
+            identity, "brain_conversation", when,
             title=redact(meta["title"])[0], body=redact(body)[0],
             tz_offset_min=int(when.utcoffset().total_seconds() / 60),
-            payload={"brain_ref": f"session:{source_name}:{harness}:{sid}",
-                     "source_file": str(path.resolve())},
+            payload={"brain_ref": f"session:{source_name}:{identity}", "source_file": str(path.resolve())},
         )
 
 
@@ -165,6 +171,7 @@ def refresh(path: Path, vault: Path, calendars=(), sessions: Path | None = None,
                         old.backup(copy)
             with closing(db.connect(stage)) as conn:
                 conn.executescript(db.schema_sql())
+                conn.executescript(recall.SCHEMA)
                 conn.execute(
                     "CREATE TABLE IF NOT EXISTS brain_reference "
                     "(ref TEXT PRIMARY KEY, event_id INTEGER UNIQUE REFERENCES event(id) ON DELETE CASCADE)"
@@ -186,6 +193,7 @@ def refresh(path: Path, vault: Path, calendars=(), sessions: Path | None = None,
                     )
                     refs = [(reference(row), row["id"]) for row in rows]
                     conn.executemany("INSERT INTO brain_reference VALUES (?, ?)", refs)
+                    recall.index_passages(conn)
                 conn.execute(f"PRAGMA application_id = {APPLICATION_ID}")
                 if conn.execute("PRAGMA foreign_key_check").fetchall():
                     raise ValueError("Source references failed validation")
