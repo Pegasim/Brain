@@ -115,8 +115,10 @@ def main():
         if not args.db.is_file():
             parser.error("Database missing. Run load for the synthetic demo or refresh to import sources.")
         if args.command == "embed":
-            report = embed(args.db, progress=lambda done, total: print(f"\r{done}/{total}", end="", file=sys.stderr))
-            print(f"\nEmbedded {report['embedded']} new passages with {report['model']}; "
+            progress = (lambda done, total: print(f"\r{done}/{total}", end="", file=sys.stderr)) \
+                if sys.stderr.isatty() else None
+            report = embed(args.db, progress=progress)
+            print(f"Embedded {report['embedded']} new passages with {report['model']}; "
                   f"{report['passages']} note passages, {report['pruned']} unused vectors removed")
             return
         result = {
